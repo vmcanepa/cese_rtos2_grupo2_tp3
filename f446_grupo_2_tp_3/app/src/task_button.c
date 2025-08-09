@@ -53,14 +53,14 @@
 #define BUTTON_LONG_TIMEOUT_      (2000)
 
 /********************** internal data declaration ****************************/
-typedef enum {
+enum button_type_t {
 
 	BUTTON_TYPE_NONE,
 	BUTTON_TYPE_PULSE,
 	BUTTON_TYPE_SHORT,
 	BUTTON_TYPE_LONG,
 	BUTTON_TYPE__N,
-} button_type_t;
+};
 
 /********************** internal data definition *****************************/
 static struct {
@@ -109,10 +109,7 @@ void task_button(void* argument) {
 
 	while(true) {
 
-		GPIO_PinState button_state;
-		button_state = !HAL_GPIO_ReadPin(BTN_PORT, BTN_PIN);
-		button_type_t button_type;
-		button_type = button_process_state_(button_state);
+		button_type_t button_type = get_button_type();
 
 		switch(button_type) {
 
@@ -150,5 +147,22 @@ void button_callback(msg_t* pmsg) {
 	vPortFree((void*)pmsg);
 	LOGGER_INFO("[BTN] Callback: memoria liberada");
 }
+
+/* Obtener tipo de entrada boton */
+button_type_t get_button_type(void)
+{
+	GPIO_PinState button_state;
+
+#ifdef GRUPO2_446
+	/* Hardware F446: */
+	button_state = !HAL_GPIO_ReadPin(BTN_PORT, BTN_PIN);
+#else
+	/* Hardware F407: */
+	button_state = HAL_GPIO_ReadPin(BTN_PORT, BTN_PIN);
+#endif
+
+	return button_process_state_(button_state);
+}
+
 
 /********************** end of file ******************************************/

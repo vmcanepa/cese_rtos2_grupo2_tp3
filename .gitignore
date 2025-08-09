@@ -3,6 +3,7 @@
 */*.launch
 */*.cfg
 **/Debug*/*
+**/Debug*/
 
 **/.settings
 **/.cproject
