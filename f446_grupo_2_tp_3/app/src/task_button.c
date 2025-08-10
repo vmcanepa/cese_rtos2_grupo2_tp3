@@ -137,8 +137,8 @@ void task_button(void* argument) {
 
 
 /* Obtener tipo de entrada boton */
-button_type_t get_button_type(void)
-{
+button_type_t get_button_type(void) {
+
 	GPIO_PinState button_state;
 
 #ifdef GRUPO2_446

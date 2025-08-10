@@ -18,7 +18,7 @@
 #include "priority_queue.h"
 
 /********************** macros and definitions *******************************/
-#define TASK_PERIOD_MS_           (50)
+#define TASK_PERIOD_MS_          (50)
 #define QUEUE_LENGTH_            (10)
 #define QUEUE_ITEM_SIZE_         (sizeof(msg_event_t*))
 
