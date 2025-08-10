@@ -17,6 +17,7 @@
 #include "dwt.h"
 
 #include "ao_led.h"
+#include "priority_queue.h"
 
 /********************** macros and definitions *******************************/
 #define QUEUE_LED_LENGTH_		(10)
@@ -26,15 +27,29 @@
 static GPIO_TypeDef* led_port_[] = {LED_RED_PORT, LED_GREEN_PORT,  LED_BLUE_PORT};
 static uint16_t led_pin_[] = {LED_RED_PIN,  LED_GREEN_PIN, LED_BLUE_PIN };
 static const char *colorNames[] = {"RED", "GREEN", "BLUE"};
+static const char *prioNames[] = {"LOW", "MED", "HIGH"};
+
+static bool led_task_running = false;
 
 /********************** internal functions declaration ***********************/
-static void turnOnLed(ao_led_color_t color);
+static void task_led(void *argument);
+static void turnOnLed(ao_led_color_t color, TickType_t * t0_led_on);
 static void turnOffLed(ao_led_color_t color);
 
 /********************** internal functions definition ************************/
-static void turnOnLed(ao_led_color_t color) {
+static inline void todos_los_led_apagados(void)
+{
+	HAL_GPIO_WritePin(LED_RED_PORT,   LED_RED_PIN,   LED_OFF);
+	HAL_GPIO_WritePin(LED_GREEN_PORT, LED_GREEN_PIN, LED_OFF);
+	HAL_GPIO_WritePin(LED_BLUE_PORT,  LED_BLUE_PIN,  LED_OFF);
+}
 
+static void turnOnLed(ao_led_color_t color, TickType_t * t0_led_on) {
+
+	//taskENTER_CRITICAL();
 	HAL_GPIO_WritePin(led_port_[color], led_pin_[color], LED_ON);
+	*t0_led_on = xTaskGetTickCount(); /* comenzar a contar tiempo desde led encendido. */
+	//taskEXIT_CRITICAL();
 }
 
 static void turnOffLed(ao_led_color_t color) {
@@ -46,24 +61,54 @@ static void turnOffLed(ao_led_color_t color) {
 
 static void task_led(void *argument) {
 
-	data_queue_t data;
+	LOGGER_INFO("[LED] tarea iniciada");
 
-	// sacar de la cola de prioridad
+	while(true)
+	{
+		prio_queue_priority_t prio;
+		data_queue_t          data;
 
-	// encender el led que corresponda
+		/* Sacar de la cola de prioridad:
+		 */
+		if(prio_queue_extract(&data, &prio))
+		{
+			if(AO_LED_MESSAGE_ON == data.action)
+			{
+				TickType_t xLastLedOnTime;
 
-	// delay de 5 seg
+				/* Encender por 5 segundos el LED de prioridad p: */
+				LOGGER_INFO("[LED] ON %s (p=%s)", colorNames[data.color], prioNames[prio]);
 
-	// apagar el led
+				turnOnLed(data.color, &xLastLedOnTime);
+				vTaskDelayUntil(&xLastLedOnTime, pdMS_TO_TICKS(5000));
+				turnOffLed(data.color);
+
+				LOGGER_INFO("[LED] OFF %s", colorNames[data.color]);
+			}
+		}
+		else
+		{
+			vTaskDelay(pdMS_TO_TICKS(20));
+		}
+
+	}
 }
 
 bool ao_led_init() {
 
-	// esta deberia crear la tarea!!!!
+	if(led_task_running) /* si la tarea ya ha sido creada... */
+		return true;
 
+	if(pdPASS == xTaskCreate(task_led, "task_led", 128, NULL, tskIDLE_PRIORITY, NULL))
+	{
+		todos_los_led_apagados();
+		led_task_running = true;
+		LOGGER_INFO("[LED] tarea creada");
+		return true;
+	}
 
-	return true;
+	LOGGER_INFO("[LED] error en ao_led_init().");
+	return false;
 }
-
 
 /********************** end of file ******************************************/
