@@ -44,7 +44,7 @@
 #include "dwt.h"
 
 #include "task_button.h"
-#include "task_ao.h"
+#include "ao_ui.h"
 
 /********************** macros and definitions *******************************/
 #define TASK_PERIOD_MS_           (50)
@@ -116,20 +116,20 @@ void task_button(void* argument) {
 			case BUTTON_TYPE_NONE:
 				break;
 			case BUTTON_TYPE_PULSE:
-				if(task_ao_init()){
-					if(ao_ui_send_event(MSG_EVENT_BUTTON_PULSE, button_callback))
+				if(ao_ui_init()){
+					if(ao_ui_send_event(MSG_EVENT_BUTTON_PULSE))
 						LOGGER_INFO("[BUTTON] pulso enviado");
 				}
 				break;
 			case BUTTON_TYPE_SHORT:
-				if(task_ao_init()){
-					if(ao_ui_send_event(MSG_EVENT_BUTTON_SHORT, button_callback))
+				if(ao_ui_init()){
+					if(ao_ui_send_event(MSG_EVENT_BUTTON_SHORT))
 						LOGGER_INFO("[BUTTON] corto enviado");
 				}
 				break;
 			case BUTTON_TYPE_LONG:
-				if(task_ao_init()){
-					if(ao_ui_send_event(MSG_EVENT_BUTTON_LONG, button_callback))
+				if(ao_ui_init()){
+					if(ao_ui_send_event(MSG_EVENT_BUTTON_LONG))
 						LOGGER_INFO("[BUTTON] largo enviado");
 				}
 				break;
@@ -141,12 +141,6 @@ void task_button(void* argument) {
 	}
 }
 
-void button_callback(msg_t* pmsg) {
-
-	// cuando la UI termina de procesar, liberar la mem del msg
-	vPortFree((void*)pmsg);
-	LOGGER_INFO("[BTN] Callback: memoria liberada");
-}
 
 /* Obtener tipo de entrada boton */
 button_type_t get_button_type(void)

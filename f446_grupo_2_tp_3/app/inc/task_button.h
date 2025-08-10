@@ -51,7 +51,6 @@ typedef enum button_type_t button_type_t;
 /********************** external functions declaration ***********************/
 
 void task_button(void* argument);
-void button_callback(msg_t* pmsg);
 button_type_t get_button_type(void);
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

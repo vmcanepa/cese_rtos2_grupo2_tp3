@@ -1,8 +1,6 @@
 /*
- * ao_ui.c
  *
- *  Created on: Aug 2, 2025
- *      Author: grupo 2 RTOS II
+ * @author : cese_rtos2_grupo_2
  */
 
 /********************** inclusions *******************************************/
@@ -17,10 +15,11 @@
 #include "dwt.h"
 
 #include "ao_ui.h"
+#include "priority_queue.h"
 
 /********************** macros and definitions *******************************/
 #define QUEUE_LENGTH_            (10)
-#define QUEUE_ITEM_SIZE_         (sizeof(msg_t*))
+#define QUEUE_ITEM_SIZE_         (sizeof(msg_event_t*))
 
 typedef enum {
 
@@ -28,153 +27,116 @@ typedef enum {
 	UI_STATE_RED,
 	UI_STATE_GREEN,
 	UI_STATE_BLUE,
+	UI_STATE__N,
 } ui_state_t;
 
-/********************** external data declaration *****************************/
-extern ao_led_handle_t led_red, led_green, led_blue;
-extern bool ao_running;
-
 /********************** internal data definition *****************************/
+static bool ui_running;
 static QueueHandle_t hqueue;
-static ui_state_t estado_ui = UI_STATE_STANDBY;
 
-/********************** external functions definition ************************/
-void ao_ui_process(void) {
+/********************** internal functions declaration ***********************/
+static void task_ui(void *argument);
+static void ao_ui_delete(void);
+static void ao_ui_queue_delete(void);
+/********************** internal functions definition ************************/
+static void task_ui(void *argument) {
 
-	msg_t* pmsg;
+	ao_led_init();
+	prio_queue_init();
 
-	if(pdPASS == xQueueReceive(hqueue, (void*) &pmsg, 0)) {
+	while(true) {
 
-		bool msgSent = pdFAIL;
+		msg_event_t msg;
 
-		switch(pmsg->data) {
+		if(pdPASS == xQueueReceive(hqueue, &msg, 1000)) {
 
-			case MSG_EVENT_BUTTON_PULSE:
-				msgSent = pdFAIL;
-				if(UI_STATE_STANDBY == estado_ui)
-					msgSent = pdPASS;			// no requiere manda ningun otro mensaje
-				if(UI_STATE_GREEN == estado_ui)
-					msgSent = ao_led_send(&led_green, AO_LED_MESSAGE_OFF, ao_ui_callback);
-				if(UI_STATE_BLUE == estado_ui)
-					msgSent = ao_led_send(&led_blue, AO_LED_MESSAGE_OFF, ao_ui_callback);
-				if(msgSent && ao_led_send(&led_red,  AO_LED_MESSAGE_ON, ao_ui_callback)) {
-					estado_ui = UI_STATE_RED;
-					LOGGER_INFO("[UI] Estado RED");
-				}
-				break;
-			case MSG_EVENT_BUTTON_SHORT:
-				if(UI_STATE_STANDBY == estado_ui)
-					msgSent = pdPASS;			// no requiere manda ningun otro mensaje
-				if(UI_STATE_RED == estado_ui)
-					msgSent = ao_led_send(&led_red, AO_LED_MESSAGE_OFF, ao_ui_callback);
-				if(UI_STATE_BLUE == estado_ui)
-					msgSent = ao_led_send(&led_blue, AO_LED_MESSAGE_OFF, ao_ui_callback);
-				if(msgSent && ao_led_send(&led_green, AO_LED_MESSAGE_ON, ao_ui_callback)){
-					estado_ui = UI_STATE_GREEN;
-					LOGGER_INFO("[UI] Estado GREEN");
-				}
-				break;
-			case MSG_EVENT_BUTTON_LONG:
-				if(UI_STATE_STANDBY == estado_ui)
-					msgSent = pdPASS;			// no requiere manda ningun otro mensaje
-				if(UI_STATE_RED == estado_ui)
-					msgSent = ao_led_send(&led_red, AO_LED_MESSAGE_OFF, ao_ui_callback);
-				if(UI_STATE_GREEN == estado_ui)
-					msgSent = ao_led_send(&led_green, AO_LED_MESSAGE_OFF, ao_ui_callback);
-				if(msgSent && ao_led_send(&led_blue, AO_LED_MESSAGE_ON, ao_ui_callback)){
-					estado_ui = UI_STATE_BLUE;
-					LOGGER_INFO("[UI] Estado BLUE");
-				}
-				break;
-			default:
-				break;
+			data_queue_t ao_led_msg;
+			ao_led_msg.action = AO_LED_MESSAGE_ON;
+
+			switch(msg) {
+
+				case MSG_EVENT_BUTTON_PULSE:
+					ao_led_msg.color = AO_LED_COLOR_RED;
+					if(prio_queue_insert(ao_led_msg, PRIO_QUEUE_PRIORITY_HIGH)){
+						LOGGER_INFO("[UI] Insert High");
+					}
+					break;
+				case MSG_EVENT_BUTTON_SHORT:
+					ao_led_msg.color = AO_LED_COLOR_GREEN;
+					if(prio_queue_insert(ao_led_msg, PRIO_QUEUE_PRIORITY_MEDIUM)){
+						LOGGER_INFO("[UI] Insert Medium");
+					}
+					break;
+				case MSG_EVENT_BUTTON_LONG:
+					ao_led_msg.color = AO_LED_COLOR_BLUE;
+					if(prio_queue_insert(ao_led_msg, PRIO_QUEUE_PRIORITY_LOW)){
+						LOGGER_INFO("[UI] Insert Low");
+					}
+					break;
+				default:
+					break;
+			}
+		} else {
+			// la tarea UI debe vivir mientras hay mensajes sin procesar en la cola ui
+			// cuando se acaban los mensajes encolados, se suicida
+			ao_ui_delete();
 		}
-		// Aviso al callback del remitente (button)
-		if (pmsg->process_cb)
-			pmsg->process_cb(pmsg);
 	}
 }
 
-bool ao_ui_init(void) {
-	// agrego logica para que se cree la cola solo si no hay una creada
-	if(NULL == hqueue) {
-		hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
+static void ao_ui_delete(void) {
 
-		if(NULL == hqueue) {
-
-			LOGGER_INFO("[UI] Error! Falla creación de cola. Abortando init de UI.");
-			return false;
-		}
-		vQueueAddToRegistry(hqueue, "Cola UI");
-		LOGGER_INFO("[UI] Crea cola UI");
-	}
-	return true;
-}
-
-bool ao_ui_send_event(msg_event_t event, ui_callback_t cbFunction) {
-
-	if(NULL == hqueue) {
-
-		LOGGER_INFO("[UI] Error! Cola UI no exite.");
-		return false;
-	}
-	msg_t* pmsg = pvPortMalloc(sizeof(msg_t));
-
-	if(!pmsg)
-		return false;
-
-	pmsg->size = sizeof(msg_t);
-	pmsg->data = event;
-	pmsg->process_cb = cbFunction;
-	BaseType_t result = xQueueSend(hqueue, &pmsg, 0);
-
-	if(pdPASS != result) {
-
-		LOGGER_INFO("[UI] Error! Cola UI llena, liberando mem del msg.");
-		vPortFree(pmsg);
-		return false;
-	}
-	return true;
-}
-
-void ao_ui_callback(ao_led_message_t* pmsg) {
-
-    vPortFree((void*)pmsg);
-    LOGGER_INFO("[UI] Callback: memoria de mensaje LED liberada");
-}
-
-void ao_ui_queue_delete(void) {
-
-	if(NULL != hqueue) {
-
-		msg_t* pmsg;
-
-		while(pdPASS == xQueueReceive(hqueue, (void*)&pmsg, 0)) {
-
-			vPortFree((void*)pmsg);		// libero la memoria de posibles mensajes encolados
-		}
+	taskENTER_CRITICAL(); { // seccion critica para que nadie mande mensajes mientras elimino
+		ui_running = false;
 		vQueueDelete(hqueue);
 		hqueue = NULL;
-	}
+	} taskEXIT_CRITICAL();
+	LOGGER_INFO("[UI] Elimina tarea UI y su cola");
+	vTaskDelete(NULL);
 }
 
-void ui_running_update(void) {
+/********************** external functions definition ************************/
+bool ao_ui_init(void) {
+	bool init_status = false;
+	// agrego logica para que se cree la tarea solo si no hay una corriendo
+	taskENTER_CRITICAL();
+		if(!ui_running) {
 
-	// chequear si hay mensajes para procesar en alguna cola
-	// uxQueueMessagesWaiting: Devuelve la cantidad de mensajes actualmente en la cola.
-	UBaseType_t msgInQueues = 0;
-	msgInQueues += uxQueueMessagesWaiting(hqueue);						// cola UI
+			hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
+			if(NULL != hqueue) {
+				BaseType_t status;
+				status = xTaskCreate(task_ui, "task_ao_ui", 128, NULL, tskIDLE_PRIORITY, NULL);
+				if(pdPASS != status) {  // si falla alocacion de mem para la tarea, elimino la queue tambien
+					vQueueDelete(hqueue);
+					hqueue = NULL;
+				} else {
+					init_status = true;
+					ui_running = true;
+				}
+		}
+	} taskEXIT_CRITICAL();
+	if(true == init_status){
+		LOGGER_INFO("[UI] Crea tarea UI");
+	} else {
+		LOGGER_INFO("[UI] Error! Falla creación de tarea. Abortando init de UI.");
+	}
 
-	if(NULL != led_red.hqueue)
-		msgInQueues += uxQueueMessagesWaiting(led_red.hqueue);			// cola RED
+	return init_status;
+}
 
-	if(NULL != led_green.hqueue)
-		msgInQueues += uxQueueMessagesWaiting(led_green.hqueue);	// cola GREEN
+bool ao_ui_send_event(msg_event_t msg) {
 
-	if(NULL != led_blue.hqueue)
-		msgInQueues += uxQueueMessagesWaiting(led_blue.hqueue);		// cola BLUE
+	BaseType_t status = xQueueSend(hqueue, &msg, 0);
+	while(pdPASS != status){
+		LOGGER_INFO("[UI] Cola llena: descartando evento antiguo.");
+		msg_event_t aux;
+		xQueueReceive(hqueue, &aux, 0);
+		status = xQueueSend(hqueue, &msg, 0);
+	}
 
-	if(!msgInQueues) ao_running = false;
+	LOGGER_INFO("[UI] Evento enviado: %d", msg);
+
+	return (status == pdPASS);
 }
 
 /********************** end of file ******************************************/
