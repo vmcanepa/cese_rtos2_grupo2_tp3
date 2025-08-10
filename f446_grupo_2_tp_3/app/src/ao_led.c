@@ -63,17 +63,17 @@ static void task_led(void *argument) {
 
 	LOGGER_INFO("[LED] tarea iniciada");
 
-	while(true)
-	{
+	while(true)	{
+
 		prio_queue_priority_t prio;
 		data_queue_t          data;
 
 		/* Sacar de la cola de prioridad:
 		 */
-		if(prio_queue_extract(&data, &prio))
-		{
-			if(AO_LED_MESSAGE_ON == data.action)
-			{
+		if(prio_queue_extract(&data, &prio)) {
+
+			if(AO_LED_MESSAGE_ON == data.action) {
+
 				TickType_t xLastLedOnTime;
 
 				/* Encender por 5 segundos el LED de prioridad p: */
@@ -85,12 +85,10 @@ static void task_led(void *argument) {
 
 				LOGGER_INFO("[LED] OFF %s", colorNames[data.color]);
 			}
-		}
-		else
-		{
+		} else {
+
 			vTaskDelay(pdMS_TO_TICKS(20));
 		}
-
 	}
 }
 
@@ -99,14 +97,13 @@ bool ao_led_init() {
 	if(led_task_running) /* si la tarea ya ha sido creada... */
 		return true;
 
-	if(pdPASS == xTaskCreate(task_led, "task_led", 128, NULL, tskIDLE_PRIORITY, NULL))
-	{
+	if(pdPASS == xTaskCreate(task_led, "task_led", 128, NULL, tskIDLE_PRIORITY, NULL)) {
+
 		todos_los_led_apagados();
 		led_task_running = true;
 		LOGGER_INFO("[LED] tarea creada");
 		return true;
 	}
-
 	LOGGER_INFO("[LED] error en ao_led_init().");
 	return false;
 }
