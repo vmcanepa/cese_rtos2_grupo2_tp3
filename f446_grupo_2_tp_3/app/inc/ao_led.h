@@ -31,25 +31,15 @@ typedef enum {
 
 typedef struct {
 
-  ao_led_color_t color;
-  QueueHandle_t hqueue;
-} ao_led_handle_t;
+	ao_led_action_t action;
+	ao_led_color_t color;
+} data_queue_t;
 
-typedef struct ao_led_message_s ao_led_message_t;
-
-typedef void (*led_callback_t)(ao_led_message_t* pmsg); // cuando led termina, avisa a UI
 
 /********************** external data declaration ****************************/
-struct ao_led_message_s {
-
-	ao_led_action_t action;
-	led_callback_t process_cb;
-};
 
 /********************** external functions declaration ***********************/
-void ao_led_process(ao_led_handle_t * hao);
-bool ao_led_init(ao_led_handle_t* hao, ao_led_color_t color);
-bool ao_led_send(ao_led_handle_t* hao, ao_led_action_t msg, led_callback_t cbFunction);
-void ao_led_delete_cola(ao_led_handle_t* hao);
+bool ao_led_init();
+
 
 #endif /* INC_AO_LED_H_ */
