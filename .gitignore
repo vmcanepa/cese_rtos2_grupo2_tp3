@@ -6,9 +6,9 @@
 **/Debug*/
 
 **/.settings
-**/.cproject
-**/.mxproject
-**/.project
+# **/.cproject
+#**/.mxproject
+#**/.project
 
 /controlador_ejemplo_01/
 /controlador_ejemplo_02/
@@ -31,4 +31,8 @@
 **/app_controlador_ejemplo_03/*
 **/app_controlador_ejemplo_04/
 **/app_controlador_ejemplo_04/*
+
+/f407_grupo_2_tp_3/.cproject
+/f407_grupo_2_tp_3/.mxproject
+/f407_grupo_2_tp_3/.project
 
