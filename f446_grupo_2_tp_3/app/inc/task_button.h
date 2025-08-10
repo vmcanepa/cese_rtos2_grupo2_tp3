@@ -48,7 +48,7 @@ extern "C" {
 #define TESTING_SIMULATION_BUTTON_INPUTS /* esto ponerlo en el .h */
 
 #ifdef TESTING_SIMULATION_BUTTON_INPUTS
- #define TESTING_ARRAY_INPUTS_2 /* Elegir el numero de test que se va a correr en modo testing. */
+ #define TESTING_ARRAY_INPUTS_3 /* Elegir el numero de test que se va a correr en modo testing. */
 #endif
 
 
