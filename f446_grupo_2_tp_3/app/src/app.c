@@ -45,8 +45,10 @@
 /********************** external functions definition ************************/
 void app_init(void) {
 
-	BaseType_t status;
+	ao_led_init();
+	ao_ui_init();
 
+	BaseType_t status;
 	status = xTaskCreate(task_button, "task_button", 128, NULL, tskIDLE_PRIORITY + 2, NULL);
 
 	if(pdPASS != status)
