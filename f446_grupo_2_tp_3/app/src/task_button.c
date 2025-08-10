@@ -91,9 +91,38 @@ static struct {
 															BUTTON_TYPE_LONG,
 															BUTTON_TYPE_NONE };
 	#elif defined(TESTING_ARRAY_INPUTS_3)
+
+		/* - Entran mas de 10 eventos y los primeros son de baja prioridad.
+		 * - Para la primer entrada (de baja prioridad) puede que OA LED reaccione y se encienda el LED.
+		 * - Las proximas entradas ocurren inmediatamente, pero OA LED solamente reacciona 10 veces mas y en orden de prioridades.
+		 * - Las entradas de este test son:
+				* 2 entradas con BAJA PRIORIDAD;
+				* 5 entradas con MEDIA;
+				* 4 entradas con ALTA.
+		 */
 		static const button_type_t s_btn_seq_default[] = {
 															BUTTON_TYPE_NONE,
 															BUTTON_TYPE_LONG,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_LONG,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
 															BUTTON_TYPE_NONE };
 	#elif defined(TESTING_ARRAY_INPUTS_4)
 		static const button_type_t s_btn_seq_default[] = {
