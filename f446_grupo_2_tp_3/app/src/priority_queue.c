@@ -59,14 +59,15 @@ bool prio_queue_insert(data_queue_t data, prio_queue_priority_t priority) {
 
 	if(!queue_initialized)
 		return false;
-
 	taskENTER_CRITICAL(); { 					// protejo la escritura y ordenamiento para no romper la queue
 
 		node_t* nuevo_nodo = (node_t*)malloc(sizeof(node_t));
 
-		if(NULL == nuevo_nodo)
+		if(NULL == nuevo_nodo) {
+
 			taskEXIT_CRITICAL(); // salir de zona critica antes de salir de la función
 			return false;
+		}
 
 		if(MAX_QUEUE_LENGTH_ <= queue_count)
 			delete_rear_node();
@@ -87,7 +88,6 @@ bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority) {
 
 	if(NULL == data || NULL == priority)
 		return false;
-
 	taskENTER_CRITICAL(); {				// protejo la lectura y ordenamiento para no romper la queue
 
 		*data = queue_head->data;
@@ -100,22 +100,21 @@ bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority) {
 /********************** internal functions definition ************************/
 static node_t * find_pos_in_queue_(node_t * new_node) {
 
-    if (PRIO_QUEUE_PRIORITY_HIGH == new_node->priority) {
+    if(PRIO_QUEUE_PRIORITY_HIGH == new_node->priority) {
         // Insertar ANTES del primer no-HIGH
         node_t *next_non_high = queue_high_prio ? queue_high_prio->next : queue_head;
         queue_high_prio = new_node;     // nuevo “último HIGH”
         return next_non_high;           // insert_ordered_node_ insertará ANTES de este
     }
 
-    if (PRIO_QUEUE_PRIORITY_MEDIUM == new_node->priority) {
+    if(PRIO_QUEUE_PRIORITY_MEDIUM == new_node->priority) {
         // Insertar ANTES del primer LOW
-        node_t *first_low =
-            (queue_medium_prio ? queue_medium_prio->next
-                               : (queue_high_prio ? queue_high_prio->next : queue_head));
+        node_t * first_low =
+        					(queue_medium_prio ? queue_medium_prio->next
+        					: (queue_high_prio ? queue_high_prio->next : queue_head));
         queue_medium_prio = new_node;   // nuevo “último MEDIUM”
         return first_low;               // si es NULL, cae al final
     }
-
     // LOW: siempre al final
     return NULL;
 }
@@ -126,6 +125,12 @@ static void insert_ordered_node_(node_t * nuevo_nodo) {
 
 		queue_head = nuevo_nodo;
 		queue_tail = nuevo_nodo;
+
+		if(PRIO_QUEUE_PRIORITY_HIGH == nuevo_nodo->priority)
+			queue_high_prio = nuevo_nodo;
+
+		if(PRIO_QUEUE_PRIORITY_MEDIUM == nuevo_nodo->priority)
+			queue_medium_prio = nuevo_nodo;
 		return;
     }
 	node_t* nodo_siguiente = find_pos_in_queue_(nuevo_nodo);
