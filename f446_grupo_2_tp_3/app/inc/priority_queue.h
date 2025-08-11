@@ -2,7 +2,7 @@
  * priority_queue.h
  *
  *  Created on: Aug 9, 2025
- *      Author: jez
+ *      Author: cese_rtos2_grupo_2
  */
 
 #ifndef INC_PRIORITY_QUEUE_H_
