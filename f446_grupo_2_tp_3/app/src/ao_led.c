@@ -17,7 +17,9 @@
 #include "dwt.h"
 
 #include "ao_led.h"
-#include "priority_queue.h"
+#include "heap_prio_queue.h"
+
+extern PriorityQueue* heappq;
 
 /********************** macros and definitions *******************************/
 #define TASK_PERIOD_MS_         (50)
@@ -63,12 +65,18 @@ static void task_led(void *argument) {
 
 	while(true)	{
 
+		// Verificar que la priority queue esté inicializada
+		if (!heappq) {
+			LOGGER_INFO("[LED] esperando inicialización de cola de prioridad");
+			vTaskDelay((TickType_t)(TASK_PERIOD_MS_ / portTICK_PERIOD_MS));
+			continue; // Esperar hasta que esté inicializada
+		}
+
 		prio_queue_priority_t prio;
 		data_queue_t data;
 
-		/* Sacar de la cola de prioridad:
-		 */
-		if(prio_queue_extract(&data, &prio)) {
+		/* Sacar de la cola de prioridad: */
+		if(extract_from_prio_queue(heappq, &data, &prio)) {
 
 			if(AO_LED_MESSAGE_ON == data.action) {
 
@@ -92,7 +100,7 @@ bool ao_led_init() {
 	if(led_task_running) /* si la tarea ya ha sido creada... */
 		return true;
 
-	if(pdPASS == xTaskCreate(task_led, "task_led", 128, NULL, tskIDLE_PRIORITY, NULL)) {
+	if(pdPASS == xTaskCreate(task_led, "task_led", 128, NULL, tskIDLE_PRIORITY + 1, NULL)) {
 
 		todos_los_led_apagados();
 		led_task_running = true;

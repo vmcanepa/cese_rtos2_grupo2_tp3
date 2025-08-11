@@ -15,7 +15,9 @@
 #include "dwt.h"
 
 #include "ao_ui.h"
-#include "priority_queue.h"
+#include "heap_prio_queue.h"
+
+PriorityQueue* heappq;
 
 /********************** macros and definitions *******************************/
 #define TASK_PERIOD_MS_          (50)
@@ -41,7 +43,13 @@ static void task_ui(void *argument);
 /********************** internal functions definition ************************/
 static void task_ui(void *argument) {
 
-	prio_queue_init();
+	// prio_queue_init();
+	heappq = create_priority_queue();
+	if (!heappq) {
+		LOGGER_INFO("[UI] ERROR: Falla creación de priority queue");
+		vTaskSuspend(NULL); // Suspender esta tarea
+	}
+	LOGGER_INFO("[UI] Priority queue creada exitosamente");
 
 	while(true) {
 
@@ -56,17 +64,17 @@ static void task_ui(void *argument) {
 
 				case MSG_EVENT_BUTTON_PULSE:
 					ao_led_msg.color = AO_LED_COLOR_RED;
-					if(prio_queue_insert(ao_led_msg, PRIO_QUEUE_PRIORITY_HIGH))
+					if(insert_in_prio_queue(heappq, ao_led_msg, PRIO_QUEUE_PRIORITY_HIGH))
 						LOGGER_INFO("[UI] Insert High");
 					break;
 				case MSG_EVENT_BUTTON_SHORT:
 					ao_led_msg.color = AO_LED_COLOR_GREEN;
-					if(prio_queue_insert(ao_led_msg, PRIO_QUEUE_PRIORITY_MEDIUM))
+					if(insert_in_prio_queue(heappq, ao_led_msg, PRIO_QUEUE_PRIORITY_MEDIUM))
 						LOGGER_INFO("[UI] Insert Medium");
 					break;
 				case MSG_EVENT_BUTTON_LONG:
 					ao_led_msg.color = AO_LED_COLOR_BLUE;
-					if(prio_queue_insert(ao_led_msg, PRIO_QUEUE_PRIORITY_LOW))
+					if(insert_in_prio_queue(heappq, ao_led_msg, PRIO_QUEUE_PRIORITY_LOW))
 						LOGGER_INFO("[UI] Insert Low");
 					break;
 				default:
