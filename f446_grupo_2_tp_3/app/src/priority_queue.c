@@ -29,10 +29,14 @@ static bool queue_initialized = false;
 static uint16_t queue_count;
 static node_t * queue_head;				// elemento de max prioridad de la cola
 static node_t * queue_tail;				// elemento de min prioridad de la cola
+static node_t * queue_high_prio;
+static node_t * queue_medium_prio;
 
 /********************** internal functions declaration ***********************/
-static node_t * find_pos_in_queue_(prio_queue_priority_t priority);
+static node_t * find_pos_in_queue_(node_t * new_node);
 static void insert_ordered_node_(node_t * new_node);
+static void delete_rear_node(void);
+static void delete_head_node(void);
 
 /********************** external functions definition ************************/
 bool prio_queue_init() {
@@ -40,10 +44,12 @@ bool prio_queue_init() {
 	if(queue_initialized)
 		return false;
 
-	if(1 >= MAX_QUEUE_LENGTH_)					// el algoritmo funciona con colas de tamaño mayor a 1
+	if(1 >= MAX_QUEUE_LENGTH_)
 		return false;
 	queue_head = NULL;
 	queue_tail = NULL;
+	queue_high_prio = NULL;
+	queue_medium_prio = NULL;
 	queue_count = 0;
 	queue_initialized = true;
 	return queue_initialized;
@@ -56,22 +62,18 @@ bool prio_queue_insert(data_queue_t data, prio_queue_priority_t priority) {
 
 	taskENTER_CRITICAL(); { 					// protejo la escritura y ordenamiento para no romper la queue
 
-		if(MAX_QUEUE_LENGTH_ <= queue_count) {	// elimino el último elemento de la cola para dejar luagar porque ya no queda espacio
-
-			queue_tail = queue_tail->prev;
-			free(queue_tail->next);				// libero la memoria del último (borrado)
-			queue_tail->next = NULL;
-			queue_count--;
-		}
-		node_t* nuevo_nodo = (node_t*)malloc(sizeof(node_t));	// alocar la memoria para el nodo nuevo y completar con los datos
+		node_t* nuevo_nodo = (node_t*)malloc(sizeof(node_t));
 
 		if(NULL == nuevo_nodo)
 			return false;
+
+		if(MAX_QUEUE_LENGTH_ <= queue_count)
+			delete_rear_node();
 		memcpy(&nuevo_nodo->data, &data, sizeof(data_queue_t));
 		nuevo_nodo->priority = priority;
 		nuevo_nodo->prev = NULL;
 		nuevo_nodo->next = NULL;
-		insert_ordered_node_(nuevo_nodo);		// inserta ordenado por prioridad
+		insert_ordered_node_(nuevo_nodo);
 		queue_count++;
 	} taskEXIT_CRITICAL();
 	return true;
@@ -79,61 +81,53 @@ bool prio_queue_insert(data_queue_t data, prio_queue_priority_t priority) {
 
 bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority) {
 
-	if(!queue_initialized || NULL == queue_head)	// no hay nada en la cola o no está inicializado
+	if(!queue_initialized || NULL == queue_head)
 		return false;
 
-	taskENTER_CRITICAL(); {						// protejo la lectura y ordenamiento para no romper la queue
+	if(NULL == data || NULL == priority)
+		return false;
 
-		// obtengo la información de debo devolver
+	taskENTER_CRITICAL(); {				// protejo la lectura y ordenamiento para no romper la queue
+
 		*data = queue_head->data;
 		*priority = queue_head->priority;
-
-		if(queue_head == queue_tail) {			// es el último de la cola
-
-			free(queue_head);					// elimino el elemento
-			queue_count = 0;					// reseteo todas las varibles
-			queue_head = NULL;
-			queue_tail = NULL;
-
-		} else {
-
-			queue_head = queue_head->next;		// apunto el elemento de salida al proximo
-			free(queue_head->prev);				// elimino el elemento
-			queue_head->prev = NULL;			// como es el primero no hay anterior
-			queue_count--;
-		}
+		delete_head_node();
 	} taskEXIT_CRITICAL();
-
 	return true;
 }
 
 /********************** internal functions definition ************************/
-static node_t * find_pos_in_queue_(prio_queue_priority_t priority) {
+static node_t * find_pos_in_queue_(node_t * new_node) {
 
-	node_t* nodo_actual = queue_head;			// empieza a buscar desde la max prioridad hacia la menor
+	node_t * temp;
 
-	while(NULL != nodo_actual) {
+	if(PRIO_QUEUE_PRIORITY_HIGH == new_node->priority) {
 
-		if(nodo_actual->priority < priority)
-			return nodo_actual;					// lugar donde voy a insertar el nodo
-		nodo_actual = nodo_actual->next;
+		temp = queue_high_prio;
+		queue_high_prio = new_node;
+		return temp;
 	}
-	return NULL;								// no hay nadie con menor prioridad
+
+	if(PRIO_QUEUE_PRIORITY_LOW == new_node->priority) {
+
+		temp = queue_medium_prio;
+		queue_medium_prio = new_node;
+		return temp;
+	}
+	return NULL;
 }
 
 static void insert_ordered_node_(node_t * nuevo_nodo) {
 
-    if(0 == queue_count) {						// caso inicial, no hay nada guardado en la cola
+    if(0 == queue_count) {
 
-		queue_head = nuevo_nodo;				// queda como head de la cola
-		queue_tail = nuevo_nodo;				// y tambien como tail
+		queue_head = nuevo_nodo;
+		queue_tail = nuevo_nodo;
 		return;
     }
+	node_t* nodo_siguiente = find_pos_in_queue_(nuevo_nodo);
 
-    // busco un lugar para guardar según la prioridad
-	node_t* nodo_siguiente = find_pos_in_queue_(nuevo_nodo->priority);
-
-	if(NULL == nodo_siguiente) {				// si no hay siguiente, el nuevo es el de menor prioridad de la cola, va al fondo
+	if(NULL == nodo_siguiente) {
 
 		nuevo_nodo->prev = queue_tail;
 		queue_tail->next = nuevo_nodo;
@@ -141,18 +135,71 @@ static void insert_ordered_node_(node_t * nuevo_nodo) {
 		return;
 	}
 
-	if(NULL == nodo_siguiente->prev) {			// este es el caso de que lo debo almacenar al comienzo de la cola
+	if(NULL == nodo_siguiente->prev) {
 
-		nuevo_nodo->next = nodo_siguiente;		// apunto al que antes era el primero
-		nodo_siguiente->prev = nuevo_nodo;		// el que antes era primero ahora es segundo asi que apunto al nuevo primero como predecesor
-		queue_head = nuevo_nodo;				// es la nueva cabecera de la cola
+		nuevo_nodo->next = nodo_siguiente;
+		nodo_siguiente->prev = nuevo_nodo;
+		queue_head = nuevo_nodo;
 		return;
 	}
-	// por último cuando lo almaceno entre otros elementos
-	node_t* nodo_anterior = nodo_siguiente->prev;	// obtengo la direccion del elemento anterior en la cola
+	node_t* nodo_anterior = nodo_siguiente->prev;
 	nuevo_nodo->next = nodo_siguiente;
 	nuevo_nodo->prev = nodo_anterior;
 	nodo_siguiente->prev = nuevo_nodo;
 	nodo_anterior->next = nuevo_nodo;
 	return;
+}
+
+static void delete_rear_node(void) {
+
+	if(queue_tail == queue_high_prio) {
+
+		queue_high_prio = queue_high_prio->prev;
+
+		if(queue_high_prio && queue_high_prio->priority != queue_tail->priority)
+			queue_high_prio = NULL;
+	} else if(queue_tail == queue_medium_prio) {
+
+		queue_medium_prio = queue_medium_prio->prev;
+
+		if(queue_medium_prio && queue_medium_prio->priority != queue_tail->priority)
+			queue_medium_prio = NULL;
+	}
+	queue_tail = queue_tail->prev;
+	free(queue_tail->next);
+	queue_tail->next = NULL;
+	queue_count--;
+}
+
+static void delete_head_node(void) {
+
+	if(queue_head == queue_high_prio) {
+
+		queue_high_prio = queue_high_prio->next;
+
+		if(queue_high_prio && queue_high_prio->priority != queue_head->priority)
+			queue_high_prio = NULL;
+	} else if(queue_head == queue_medium_prio) {
+
+		queue_medium_prio = queue_medium_prio->next;
+
+		if(queue_medium_prio && queue_medium_prio->priority != queue_head->priority)
+			queue_medium_prio = NULL;
+	}
+
+	if(queue_head == queue_tail) {
+
+		free(queue_head);
+		queue_head = NULL;
+		queue_tail = NULL;
+		queue_high_prio = NULL;
+		queue_medium_prio = NULL;
+		queue_count = 0;
+	} else {
+
+		queue_head = queue_head->next;
+		free(queue_head->prev);
+		queue_head->prev = NULL;
+		queue_count--;
+	}
 }
