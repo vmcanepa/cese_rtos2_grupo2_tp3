@@ -15,7 +15,7 @@ Desarrollar un programa en RTOS que resuelva el problema planteado en el [enunci
 - Sebastian Bedin.
 
  ## 4. Archivos soporte:
-[link al video (INCOMPLETO)](aca-va-el-link)
+[link al video ](https://drive.google.com/drive/folders/1sKmQOnmRtQkY_eKGqrRGnLYTElz6uiuF?usp=drive_link)
 
 <!--
 [link al video version segunda entrega](https://drive.google.com/file/d/17ND20xl6OT2Pd_CftyXAzKOlhsYzGrrX/view?usp=sharing)

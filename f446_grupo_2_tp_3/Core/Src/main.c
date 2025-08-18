@@ -49,7 +49,9 @@
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart2;
 
-osThreadId defaultTaskHandle;
+osThreadId Task1Handle;
+osThreadId Task2Handle;
+osSemaphoreId Binary_SemHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -58,7 +60,8 @@ osThreadId defaultTaskHandle;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
-void StartDefaultTask(void const * argument);
+void Task1_App(void const * argument);
+void Task2_App(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -107,6 +110,11 @@ int main(void)
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* definition and creation of Binary_Sem */
+  osSemaphoreDef(Binary_Sem);
+  Binary_SemHandle = osSemaphoreCreate(osSemaphore(Binary_Sem), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -120,9 +128,13 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  /* definition and creation of Task1 */
+  osThreadDef(Task1, Task1_App, osPriorityNormal, 0, 128);
+  Task1Handle = osThreadCreate(osThread(Task1), NULL);
+
+  /* definition and creation of Task2 */
+  osThreadDef(Task2, Task2_App, osPriorityNormal, 0, 128);
+  Task2Handle = osThreadCreate(osThread(Task2), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -244,7 +256,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|LD1_Pin|LD3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -252,12 +264,34 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : LD2_Pin LD1_Pin LD3_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin|LD1_Pin|LD3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BT3_Pin */
+  GPIO_InitStruct.Pin = BT3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(BT3_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BT1_Pin */
+  GPIO_InitStruct.Pin = BT1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(BT1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BT2_Pin */
+  GPIO_InitStruct.Pin = BT2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(BT2_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
@@ -296,14 +330,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_Task1_App */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the Task1 thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+/* USER CODE END Header_Task1_App */
+void Task1_App(void const * argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
@@ -312,6 +346,24 @@ void StartDefaultTask(void const * argument)
     osDelay(1);
   }
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_Task2_App */
+/**
+* @brief Function implementing the Task2 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Task2_App */
+void Task2_App(void const * argument)
+{
+  /* USER CODE BEGIN Task2_App */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END Task2_App */
 }
 
 /**
