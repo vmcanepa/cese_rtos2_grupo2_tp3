@@ -21,6 +21,6 @@ typedef enum {
 
 bool prio_queue_init();
 bool prio_queue_insert(data_queue_t data, prio_queue_priority_t priority);
-bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority);
+bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority, TickType_t timeout);
 
 #endif /* INC_PRIORITY_QUEUE_H_ */

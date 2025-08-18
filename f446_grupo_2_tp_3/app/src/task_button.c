@@ -52,6 +52,7 @@
 #define BUTTON_SHORT_TIMEOUT_     (1000)
 #define BUTTON_LONG_TIMEOUT_      (2000)
 
+
 /********************** internal data declaration ****************************/
 enum button_type_t {
 
@@ -68,9 +69,86 @@ static struct {
 	button_type_t estado;
     uint32_t counter;
 } button;
+
+
+
+/* ================================================================================================== */
+/* Agregar secuencia de entradas de testing que se quieran probar: */
+#ifdef TESTING_SIMULATION_BUTTON_INPUTS
+
+	#ifdef TESTING_ARRAY_INPUTS_1
+		static const button_type_t s_btn_seq_default[] = {
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE };
+	#elif defined(TESTING_ARRAY_INPUTS_2)
+		static const button_type_t s_btn_seq_default[] = {
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_LONG,
+															BUTTON_TYPE_NONE };
+	#elif defined(TESTING_ARRAY_INPUTS_3)
+
+		/* - Entran mas de 10 eventos y los primeros son de baja prioridad.
+		 * - Para la primer entrada (de baja prioridad) puede que OA LED reaccione y se encienda el LED.
+		 * - Las proximas entradas ocurren inmediatamente, pero OA LED solamente reacciona 10 veces mas y en orden de prioridades.
+		 * - Las entradas de este test son:
+				* 2 entradas con BAJA PRIORIDAD;
+				* 5 entradas con MEDIA;
+				* 4 entradas con ALTA.
+		 */
+		static const button_type_t s_btn_seq_default[] = {
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_LONG,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_LONG,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_SHORT,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE,
+															BUTTON_TYPE_PULSE,
+															BUTTON_TYPE_NONE };
+	#elif defined(TESTING_ARRAY_INPUTS_4)
+		static const button_type_t s_btn_seq_default[] = {
+															/* agregar secuencias.. */
+															BUTTON_TYPE_NONE };
+	#elif defined(TESTING_ARRAY_INPUTS_5)
+		static const button_type_t s_btn_seq_default[] = {
+															/* agregar secuencias.. */
+															BUTTON_TYPE_NONE };
+	#elif defined(TESTING_ARRAY_INPUTS_6)
+		static const button_type_t s_btn_seq_default[] = {
+															/* agregar secuencias.. */
+															BUTTON_TYPE_NONE };
+	#endif
+
+
+	static size_t s_btn_len  = sizeof(s_btn_seq_default) / sizeof(s_btn_seq_default[0]);	/* cantidad de elementos. */
+	static size_t s_btn_idx  = 0;		                                                    /* indice. */
+
+#endif
+/* ================================================================================================== */
+
+
 /********************** internal functions declaration ***********************/
 static void button_init_(void);
-static button_type_t button_process_state_(bool value);
+/* static button_type_t button_process_state_(bool value); */
 
 /********************** internal functions definition ************************/
 static void button_init_(void) {
@@ -78,7 +156,9 @@ static void button_init_(void) {
 	button.counter = 0;
 }
 
-static button_type_t button_process_state_(bool value) {
+#ifndef TESTING_SIMULATION_BUTTON_INPUTS
+
+static inline button_type_t button_process_state_(bool value) {
 
 	button_type_t ret = BUTTON_TYPE_NONE;
 
@@ -101,6 +181,8 @@ static button_type_t button_process_state_(bool value) {
 	}
 	return ret;
 }
+
+#endif
 
 /********************** external functions definition ************************/
 void task_button(void* argument) {
@@ -136,8 +218,17 @@ void task_button(void* argument) {
 }
 
 
+
+
+
+
 /* Obtener tipo de entrada boton */
-button_type_t get_button_type(void) {
+button_type_t get_button_type(void)
+{
+
+#ifndef TESTING_SIMULATION_BUTTON_INPUTS
+/* MODO NORMAL: --------------------------------------------------------------
+ */
 
 	GPIO_PinState button_state;
 
@@ -150,7 +241,39 @@ button_type_t get_button_type(void) {
 #endif
 
 	return button_process_state_(button_state);
+
+
+#else
+/* MODO TESTING (CON ENTRADAS PREESTABLECIDAS DE TIPOS DE BOTONES): ----------
+ */
+
+	button_type_t r;
+
+	if(0 == s_btn_len)
+		return BUTTON_TYPE_NONE;
+
+	r = s_btn_seq_default[s_btn_idx];
+
+	if((s_btn_idx + 1) < s_btn_len)
+	{
+		s_btn_idx++;
+	}
+
+	return r;
+
+
+#endif  /*¨not TESTING_SIMULATION_BUTTON_INPUTS */
 }
+
+
+
+
+
+
+
+
+
+
 
 
 /********************** end of file ******************************************/
