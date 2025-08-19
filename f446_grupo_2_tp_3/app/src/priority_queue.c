@@ -31,6 +31,8 @@ static node_t * queue_head;				// elemento de max prioridad de la cola
 static node_t * queue_tail;				// elemento de min prioridad de la cola
 static node_t * queue_high_prio;
 static node_t * queue_medium_prio;
+static SemaphoreHandle_t queue_sem;
+static SemaphoreHandle_t queue_mutex;
 
 /********************** internal functions declaration ***********************/
 static node_t * find_pos_in_queue_(node_t * new_node);
@@ -46,6 +48,15 @@ bool prio_queue_init() {
 
 	if(1 >= MAX_QUEUE_LENGTH_)
 		return false;
+
+    queue_mutex = xSemaphoreCreateMutex();
+
+    if(NULL == queue_mutex)
+    	return false;
+    queue_sem = xSemaphoreCreateCounting(MAX_QUEUE_LENGTH_, 0);
+
+	if(NULL == queue_sem)
+		return false;
 	queue_head = NULL;
 	queue_tail = NULL;
 	queue_high_prio = NULL;
@@ -59,17 +70,17 @@ bool prio_queue_insert(data_queue_t data, prio_queue_priority_t priority) {
 
 	if(!queue_initialized)
 		return false;
-	taskENTER_CRITICAL(); { 					// protejo la escritura y ordenamiento para no romper la queue
 
-		node_t* nuevo_nodo = (node_t*)malloc(sizeof(node_t));
+	if (xSemaphoreTake(queue_mutex, portMAX_DELAY) == pdTRUE) {
 
-		if(NULL == nuevo_nodo) {
+		node_t* nuevo_nodo = (node_t*)pvPortMalloc(sizeof(node_t));
+		if (NULL == nuevo_nodo) {
 
-			taskEXIT_CRITICAL(); // salir de zona critica antes de salir de la función
+			xSemaphoreGive(queue_mutex);
 			return false;
 		}
 
-		if(MAX_QUEUE_LENGTH_ <= queue_count)
+		if (MAX_QUEUE_LENGTH_ <= queue_count)
 			delete_rear_node();
 		memcpy(&nuevo_nodo->data, &data, sizeof(data_queue_t));
 		nuevo_nodo->priority = priority;
@@ -77,24 +88,41 @@ bool prio_queue_insert(data_queue_t data, prio_queue_priority_t priority) {
 		nuevo_nodo->next = NULL;
 		insert_ordered_node_(nuevo_nodo);
 		queue_count++;
-	} taskEXIT_CRITICAL();
+		xSemaphoreGive(queue_mutex);
+		xSemaphoreGive(queue_sem);  // notifica que hay un elemento disponible
+	}
 	return true;
 }
 
-bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority) {
+bool prio_queue_extract(data_queue_t * data, prio_queue_priority_t * priority, TickType_t timeout) {
 
-	if(!queue_initialized || NULL == queue_head)
+	if (!queue_initialized)
 		return false;
 
-	if(NULL == data || NULL == priority)
+	// Espera hasta que haya al menos un dato disponible
+	if(pdTRUE != xSemaphoreTake(queue_sem, timeout))
 		return false;
-	taskENTER_CRITICAL(); {				// protejo la lectura y ordenamiento para no romper la queue
 
+	if(pdTRUE == xSemaphoreTake(queue_mutex, portMAX_DELAY)) {
+
+		if(NULL == queue_head) {
+
+			xSemaphoreGive(queue_mutex);
+			return false;
+		}
+
+		if (NULL == data || NULL == priority) {
+
+			xSemaphoreGive(queue_mutex);
+			return false;
+		}
 		*data = queue_head->data;
 		*priority = queue_head->priority;
 		delete_head_node();
-	} taskEXIT_CRITICAL();
-	return true;
+		xSemaphoreGive(queue_mutex);
+		return true;
+	}
+	return false;
 }
 
 /********************** internal functions definition ************************/
@@ -174,7 +202,7 @@ static void delete_rear_node(void) {
 			queue_medium_prio = NULL;
 	}
 	queue_tail = queue_tail->prev;
-	free(queue_tail->next);
+	vPortFree(queue_tail->next);
 	queue_tail->next = NULL;
 	queue_count--;
 }
@@ -197,7 +225,7 @@ static void delete_head_node(void) {
 
 	if(queue_head == queue_tail) {
 
-		free(queue_head);
+		vPortFree(queue_head);
 		queue_head = NULL;
 		queue_tail = NULL;
 		queue_high_prio = NULL;
@@ -206,7 +234,7 @@ static void delete_head_node(void) {
 	} else {
 
 		queue_head = queue_head->next;
-		free(queue_head->prev);
+		vPortFree(queue_head->prev);
 		queue_head->prev = NULL;
 		queue_count--;
 	}

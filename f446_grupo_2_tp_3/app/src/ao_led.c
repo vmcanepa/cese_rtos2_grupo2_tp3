@@ -68,7 +68,7 @@ static void task_led(void *argument) {
 
 		/* Sacar de la cola de prioridad:
 		 */
-		if(prio_queue_extract(&data, &prio)) {
+		if(prio_queue_extract(&data, &prio, portMAX_DELAY)) {
 
 			if(AO_LED_MESSAGE_ON == data.action) {
 
@@ -80,9 +80,6 @@ static void task_led(void *argument) {
 				turnOffLed(data.color);
 				LOGGER_INFO("[LED] OFF %s", colorNames[data.color]);
 			}
-		} else {
-
-			vTaskDelay((TickType_t)(TASK_PERIOD_MS_ / portTICK_PERIOD_MS));
 		}
 	}
 }
